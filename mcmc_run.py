@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import scipy.optimize as op
 from model_fit import *
 
-model = 'gaussian'
+model = 'tanh'
 
 #freqs, temp = np.loadtxt('scihi_fore.txt', unpack = True)
-freqs, temp, err = np.loadtxt('dataset8.txt', unpack = True)
+freqs, temp, err = np.loadtxt('dataset7.txt', unpack = True)
 #err = radiometer(temp, 0.83, np.diff(freqs)[0])
 #prior list for the gaussian model
 #                           T         nu     sigma     c0       c1      c2     c3
@@ -18,12 +18,12 @@ nwalkers, b_steps, steps = 300, 1600, 800
 
 #prior list for the tanh model
 
-#priors_tanh = np.array([0.,1., 0.,20., 0.,5, 1000.,10000., 0.,20., 0.,5., 0.,25., 0,30., 0.,5.,
-#                        0., 10, -10.,0., -1.,1., -1.,1.])
+priors_tanh = np.array([0.,1., 0.,20., 0.,5, 1000.,10000., 0.,20., 0.,5., 0.,25., 0,30., 0.,5.,
+                        0., 10, -10.,0., -1.,1.])
 
 #finding the midpoint of each prior range
-ndim = np.size(priors_gauss)/2
-mid = np.zeros(ndim)
+dim = np.size(priors_tanh)/2
+mid = np.zeros(dim)
 for i in range(ndim):
     mid[i] = priors_gauss[2*i] + priors_gauss[2*i + 1]
 mid = 0.5 * mid
@@ -72,4 +72,3 @@ np.savetxt('synt1.txt', sample)
 
 fig = corner.corner(sample)
 fig.savefig('fit.pdf')
-
