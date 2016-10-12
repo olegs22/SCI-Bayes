@@ -1,6 +1,7 @@
 import numpy as np
 from coupling_coefficients import *
 from numpy.polynomial.polynomial import polyval
+import scipy.optimize as op
 
 
 #class with the 21cm signal parametrizations
@@ -46,7 +47,7 @@ class foreground(object):
         self.freqs = freq
 
     def __call__(self, *pars):
-        c0, c1, c2 = pars
+        c0, c1, c2= pars
         params1 = np.array([c0, c1, c2])
         T_gx = np.exp(polyval(np.log(self.freqs / 80.), params1))
         return T_gx
@@ -62,7 +63,7 @@ def radiometer(Tsys, tint, channel):
 #first we define the likelihood function for each parametrization
 
 
-def likelihood(pars, model, T_sky, freqs, err):
+def lnhood(pars, model, T_sky, freqs, err):
     if model == 'gaussian':
         signal_pars = pars[:3]
         fore_pars = pars[3:]
@@ -86,52 +87,54 @@ def likelihood(pars, model, T_sky, freqs, err):
 
         Tb = signal(signal_pars[0], signal_pars[1], signal_pars[2],\
                     signal_pars[3], signal_pars[4], signal_pars[5],\
-                    signal_pars[6], signal_pars[7], signal_pars[8]) * 1e-3
+                    signal_pars[6],signal_pars[7],signal_pars[8]) * 1e-3
         Tgx = fore(fore_pars[0],fore_pars[1], fore_pars[2])
         T_model = Tb + Tgx
 
         p = (((T_sky - T_model) / err)**2) + np.log(2. * np.pi * err**2)
         return -0.5 * np.sum(p)
 
-#a case of maximazing the likelihood
-def maximization(pars, mid):
-    fun = -likelihood(pars)
-    result = op.minimize(fun, mid, method = 'L-BFGS-B')
-    mu = result.x[9:]
-    return mu
 
-#Flat priors
-def flat_priors(pars, list):
-    if list[0]<pars[0]<list[1] and list[2]<pars[1]<list[3] and list[4]<pars[2]<list[5]\
-       and list[6]<pars[3]<list[7] and list[8]<pars[4]<list[9] and list[10]<pars[5]<list[11]\
-       and list[12]<pars[6]<list[13] and list[14]<pars[7]<list[15] and list[16]<pars[8]<list[17]\
-       and list[18]<pars[9]<list[19]:
-        return 0.0
-    return -np.inf
+def priors(pars, lists, mu, model):
+    if model == 'gaussian':
+        if lists[0]<pars[0]<lists[1] and lists[2]<pars[1]<lists[3] and\
+         lists[4]<pars[2]<lists[5] and lists[6]<pars[3]<lists[7] and\
+          lists[8]<pars[4]<lists[9] and lists[10]<pars[5]<lists[11]:
+            return 0.0
+        return -np.inf
 
-#Gaussian priors
-def Gauss_priors(pars, mid):
-    fore_pars = pars[9:]
-    mu = maximization(pars, mid)
-    sigma = 0.5
 
-    gauss_1 = (np.log(sigma) - np.log(fore_pars[0] - mu[0]))
-    gauss_2 = (np.log(sigma) - np.log(fore_pars[1] - mu[1]))
-    gauss_3 = (np.log(sigma) - np.log(fore_pars[2] - mu[2]))
+    elif model == 'tanh':
 
-    return gauss_1 + gauss_2 + gauss_3
+        def flat_priors(pars, lists):
+            if lists[0]<pars[0]<lists[1] and lists[2]<pars[1]<lists[3]\
+               and lists[4]<pars[2]<lists[5] and lists[6]<pars[3]<lists[7]\
+                and lists[8]<pars[4]<lists[9] and lists[10]<pars[5]<lists[11]\
+                and lists[12]<pars[6]<lists[13] and lists[14]<pars[7]<lists[15]\
+                and lists[16]<pars[8]<lists[17]:
+        
+                return 0.0
+            return -np.inf
 
-def log_posterior(pars, model, T_sky, freqs, err, list, mid):
-    p = priors(pars, list) + Gauss_priors(pars, mid)
+
+        def Gauss_priors(pars, mu):
+
+            fore_pars = pars[9:]
+            sigma = 2.
+
+            gauss_1 = -0.5 * (fore_pars[0] - mu[0])**2 / sigma**2
+            gauss_2 = -0.5 * (fore_pars[1] - mu[1])**2 / sigma**2
+            gauss_3 = -0.5 * (fore_pars[2] - mu[2])**2 / sigma**2
+
+            total = gauss_1 + gauss_2 + gauss_3
+            return total
+
+        flat = flat_priors(pars, lists)
+        gauss = Gauss_priors(pars, mu)
+        return flat + gauss
+
+def log_posterior(pars, model, T_sky, freqs, err, lists, mu):
+    p = priors(pars, lists, mu, model)
     if not np.isfinite(p):
         return -np.inf
-    return p + likelihood(pars, model, T_sky, freqs, err)
-
-
-#elif model == 'tanh':
-    """
-if list[0]<pars[0]<list[1] and list[2]<pars[1]<list[3] and list[4]<pars[2]<list[5]\
-    and list[6]<pars[3]<list[7] and list[8]<pars[4]<list[9] and list[10]<pars[5]<list[11]:
-        return 0.0
-    return -np.inf
-"""
+    return p + lnhood(pars, model, T_sky, freqs, err)
