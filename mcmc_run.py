@@ -54,10 +54,10 @@ for i in range(nwalkers):
 
 #burn_in phase
 print('this is just a test')
-sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior, args=(model, temp, freqs, err, priors_tanh, mu))
+sampler = emcee.EnsembleSampler(nwalkers, ndim, log_posterior,
+          args=(model, temp, freqs, err, priors_tanh, mu))
 pos, prob, state = sampler.run_mcmc(pos1, b_steps)
-print('the test has ended')
-"""
+
 sampler.reset()
 
 sampler.run_mcmc(pos, steps,rstate0=state)
