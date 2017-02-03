@@ -17,13 +17,15 @@ class model_21cm(object):
             return T_b
 
         elif self.model == 'tanh':
-            x0, xz, xdz, T0, Tz, Tdz, J0, Jz, Jdz = pars
+            logx0, xz, xdz, logT0, Tz, Tdz, J0, Jz, Jdz = pars
 
             v_0=1420.4057
             z = v_0 / self.freqs - 1.
             T_cmb = 2.725 * (1. + z)
             Tg = T_cmb * ((1. + z) / (1. + 150.))**2
 
+            x0 = 10.**logx0
+            T0 = 10.**logT0
 
             x_par = 0.5 * x0 * (np.tanh((xz - z) / xdz) + 1.)
             T_par = 0.5 * T0 * (np.tanh((Tz - z) / Tdz) + 1.) + Tg
@@ -47,7 +49,7 @@ class foreground(object):
         self.freqs = freq
 
     def __call__(self, *pars):
-        c0, c1, c2= pars
+        c0, c1, c2 = pars
         params1 = np.array([c0, c1, c2])
         T_gx = np.exp(polyval(np.log(self.freqs / 80.), params1))
         return T_gx
@@ -56,7 +58,9 @@ def radiometer(Tsys, tint, channel):
     hz_per_mhz = 1e6
     s_per_hr = 3600.
 
-    return Tsys / np.sqrt(tint * s_per_hr * channel * hz_per_mhz)
+    x = Tsys / np.sqrt(tint * s_per_hr * channel * hz_per_mhz)
+
+    return x
 
 # the functions needed for emcee taking in to account the priors
 
@@ -95,46 +99,46 @@ def lnhood(pars, model, T_sky, freqs, err):
         return -0.5 * np.sum(p)
 
 
-def priors(pars, lists, mu, model):
+def priors(pars, lists, model):
     if model == 'gaussian':
         if lists[0]<pars[0]<lists[1] and lists[2]<pars[1]<lists[3] and\
          lists[4]<pars[2]<lists[5] and lists[6]<pars[3]<lists[7] and\
-          lists[8]<pars[4]<lists[9] and lists[10]<pars[5]<lists[11]:
+         lists[8]<pars[4]<lists[9] and lists[10]<pars[5]<lists[11]:
             return 0.0
         return -np.inf
 
 
     elif model == 'tanh':
+        logx0, xz, xdz, logT0, Tz, Tdz, J0, Jz, Jdz,c0,c1,logc2,logc3 = pars
+        if lists[0]<logx0<lists[1] and lists[2]<xz<lists[3] and\
+         lists[4]<xdz<lists[5] and lists[6]<logT0<lists[7] and\
+         lists[8]<Tz<lists[9] and lists[10]<Tdz<lists[11] and\
+         lists[12]<J0<lists[13] and lists[14]<Jz<lists[15] and\
+         lists[16]<Jdz<lists[17] and lists[18]<c0<lists[19] and\
+         lists[20]<c1<lists[21] and lists[22]<logc2<lists[23] and\
+         lists[24]<logc3<lists[25]:
+            return 0.0
+        return -np.inf
 
-        def flat_priors(pars, lists):
-            if lists[0]<pars[0]<lists[1] and lists[2]<pars[1]<lists[3]\
-               and lists[4]<pars[2]<lists[5] and lists[6]<pars[3]<lists[7]\
-                and lists[8]<pars[4]<lists[9] and lists[10]<pars[5]<lists[11]\
-                and lists[12]<pars[6]<lists[13] and lists[14]<pars[7]<lists[15]\
-                and lists[16]<pars[8]<lists[17]:
-        
-                return 0.0
-            return -np.inf
 
+#def Gauss_priors(pars, mu):
 
-        def Gauss_priors(pars, mu):
+#    fore_pars = pars[9:]
+#    sigma = 2.
 
-            fore_pars = pars[9:]
-            sigma = 2.
+#    gauss_1 = -0.5 * (fore_pars[0] - mu[0])**2 / sigma**2
+#    gauss_2 = -0.5 * (fore_pars[1] - mu[1])**2 / sigma**2
+#    gauss_3 = -0.5 * (fore_pars[2] - mu[2])**2 / sigma**2
 
-            gauss_1 = -0.5 * (fore_pars[0] - mu[0])**2 / sigma**2
-            gauss_2 = -0.5 * (fore_pars[1] - mu[1])**2 / sigma**2
-            gauss_3 = -0.5 * (fore_pars[2] - mu[2])**2 / sigma**2
+#    total = gauss_1 + gauss_2 + gauss_3
+#    return total
 
-            total = gauss_1 + gauss_2 + gauss_3
-            return total
+#flat = flat_priors(pars, lists)
+#gauss = Gauss_priors(pars, mu)
+#return flat + gauss
 
-        flat = flat_priors(pars, lists)
-        gauss = Gauss_priors(pars, mu)
-        return flat + gauss
-
-def log_posterior(pars, model, T_sky, freqs, err, lists, mu):
-    p = priors(pars, lists, mu, model)
+def log_posterior(pars, model, T_sky, freqs, err, lists):
+    p = priors(pars, lists,model)
     if not np.isfinite(p):
         return -np.inf
     return p + lnhood(pars, model, T_sky, freqs, err)
